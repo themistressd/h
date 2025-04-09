@@ -1,0 +1,1971 @@
+<?php
+/**
+ * Trashgènero Theme functions and definitions
+ *
+ * @package Trashgenero
+ * @version 1.1.0
+ */
+
+// Exit if accessed directly.
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Define theme version
+define('TRASHGENERO_VERSION', '1.1.0');
+
+/**
+ * Sets up theme defaults and registers support for various WordPress features.
+ */
+function trashgenero_setup() {
+    // Add default posts and comments RSS feed links to head.
+    add_theme_support('automatic-feed-links');
+
+    // Let WordPress manage the document title.
+    add_theme_support('title-tag');
+
+    // Enable support for Post Thumbnails on posts and pages.
+    add_theme_support('post-thumbnails');
+
+    // Add support for responsive embeds.
+    add_theme_support('responsive-embeds');
+
+    // Add support for custom navigation menus.
+    register_nav_menus(
+        array(
+            'primary' => esc_html__('Primary Menu', 'trashgenero'),
+            'footer' => esc_html__('Footer Menu', 'trashgenero'),
+        )
+    );
+
+    // Add support for HTML5 markup.
+    add_theme_support(
+        'html5',
+        array(
+            'search-form',
+            'comment-form',
+            'comment-list',
+            'gallery',
+            'caption',
+            'style',
+            'script',
+        )
+    );
+
+    // Add theme support for WooCommerce
+    add_theme_support('woocommerce');
+    
+    // Add support for custom logo
+    add_theme_support(
+        'custom-logo',
+        array(
+            'height' => 100,
+            'width' => 100,
+            'flex-width' => true,
+            'flex-height' => true,
+        )
+    );
+    
+    // Set up the WordPress core custom background feature.
+    add_theme_support(
+        'custom-background',
+        apply_filters(
+            'trashgenero_custom_background_args',
+            array(
+                'default-color' => '000000',
+                'default-image' => get_template_directory_uri() . '/assets/images/background.jpg',
+            )
+        )
+    );
+    
+    // Load translations
+    load_theme_textdomain('trashgenero', get_template_directory() . '/languages');
+}
+add_action('after_setup_theme', 'trashgenero_setup');
+
+/**
+ * Enqueue scripts and styles.
+ */
+function trashgenero_scripts() {
+    // Estilos principales
+    wp_enqueue_style('trashgenero-style', get_stylesheet_uri(), array(), TRASHGENERO_VERSION);
+    
+    // Estilos de efectos glitch
+    wp_enqueue_style('trashgenero-glitch', get_template_directory_uri() . '/css/glitch-effects.css', array(), TRASHGENERO_VERSION);
+    
+    // Estilos de interfaz retro
+    wp_enqueue_style('trashgenero-retro', get_template_directory_uri() . '/css/retro-os.css', array(), TRASHGENERO_VERSION);
+    
+    // Estilos de ventanas
+    wp_enqueue_style('trashgenero-windows', get_template_directory_uri() . '/css/windows-ui.css', array(), TRASHGENERO_VERSION);
+    
+    // JavaScript para efectos retro
+    wp_enqueue_script('trashgenero-retro-effects', get_template_directory_uri() . '/js/retro-effects.js', array('jquery'), TRASHGENERO_VERSION, true);
+    
+    // JavaScript para gestor de ventanas
+    wp_enqueue_script('trashgenero-windows', get_template_directory_uri() . '/js/windows-manager.js', array('jquery'), TRASHGENERO_VERSION, true);
+    
+    // JavaScript principal del tema
+    wp_enqueue_script('trashgenero-main', get_template_directory_uri() . '/js/trashOS.js', array('jquery', 'trashgenero-windows'), TRASHGENERO_VERSION, true);
+    
+    // Localize script para datos específicos del usuario
+    wp_localize_script('trashgenero-main', 'trashgeneroData', array(
+        'ajaxUrl' => admin_url('admin-ajax.php'),
+        'userId' => get_current_user_id(),
+        'isLoggedIn' => is_user_logged_in(),
+        'isSectMember' => trash_is_sect_member(),
+        'userRank' => trash_get_user_rank(),
+        'userPoints' => trash_get_user_points(),
+        'userBadges' => trash_get_user_badges(),
+        'nonce' => wp_create_nonce('trashgenero-nonce'),
+    ));
+}
+add_action('wp_enqueue_scripts', 'trashgenero_scripts');
+
+/**
+ * Registrar sidebar.
+ */
+function trashgenero_widgets_init() {
+    register_sidebar(
+        array(
+            'name'          => esc_html__('Sidebar', 'trashgenero'),
+            'id'            => 'sidebar-1',
+            'description'   => esc_html__('Add widgets here.', 'trashgenero'),
+            'before_widget' => '<section id="%1$s" class="widget %2$s">',
+            'after_widget'  => '</section>',
+            'before_title'  => '<h2 class="widget-title">',
+            'after_title'   => '</h2>',
+        )
+    );
+}
+add_action('widgets_init', 'trashgenero_widgets_init');
+
+/**
+ * Personalizar extracto
+ */
+function trashgenero_excerpt_length($length) {
+    return 20;
+}
+add_filter('excerpt_length', 'trashgenero_excerpt_length');
+
+function trashgenero_excerpt_more($more) {
+    return '...';
+}
+add_filter('excerpt_more', 'trashgenero_excerpt_more');
+
+/**
+ * Funciones específicas para la secta Fashion Killer
+ */
+
+/**
+ * Verificar si un usuario es miembro de la secta
+ */
+function trash_is_sect_member($user_id = null) {
+    if (!$user_id) {
+        $user_id = get_current_user_id();
+    }
+    
+    if (!$user_id) {
+        return false;
+    }
+    
+    return (bool) get_user_meta($user_id, 'trash_sect_member', true);
+}
+
+/**
+ * Obtener el rango de un usuario
+ */
+function trash_get_user_rank($user_id = null) {
+    if (!$user_id) {
+        $user_id = get_current_user_id();
+    }
+    
+    if (!$user_id || !trash_is_sect_member($user_id)) {
+        return '';
+    }
+    
+    $rank = get_user_meta($user_id, 'trash_sect_rank', true);
+    
+    if (!$rank) {
+        // Rango por defecto para miembros nuevos
+        return __('Novice Normative', 'trashgenero');
+    }
+    
+    return $rank;
+}
+
+/**
+ * Obtener puntos transgresivos de un usuario
+ */
+function trash_get_user_points($user_id = null) {
+    if (!$user_id) {
+        $user_id = get_current_user_id();
+    }
+    
+    if (!$user_id || !trash_is_sect_member($user_id)) {
+        return 0;
+    }
+    
+    $points = get_user_meta($user_id, 'trash_sect_points', true);
+    
+    return (int) $points;
+}
+
+/**
+ * Obtener insignias de un usuario
+ */
+function trash_get_user_badges($user_id = null) {
+    if (!$user_id) {
+        $user_id = get_current_user_id();
+    }
+    
+    if (!$user_id || !trash_is_sect_member($user_id)) {
+        return array();
+    }
+    
+    $badges = get_user_meta($user_id, 'trash_sect_badges', true);
+    
+    if (!$badges) {
+        return array();
+    }
+    
+    return $badges;
+}
+
+/**
+ * Obtener misiones de un usuario
+ */
+function trash_get_user_missions($user_id = null) {
+    if (!$user_id) {
+        $user_id = get_current_user_id();
+    }
+    
+    if (!$user_id || !trash_is_sect_member($user_id)) {
+        return array();
+    }
+    
+    $missions = get_user_meta($user_id, 'trash_sect_missions', true);
+    
+    if (!$missions) {
+        return array();
+    }
+    
+    return $missions;
+}
+
+/**
+ * Obtener rituales de un usuario
+ */
+function trash_get_user_rituals($user_id = null) {
+    if (!$user_id) {
+        $user_id = get_current_user_id();
+    }
+    
+    if (!$user_id || !trash_is_sect_member($user_id)) {
+        return array();
+    }
+    
+    $rituals = get_user_meta($user_id, 'trash_sect_rituals', true);
+    
+    if (!$rituals) {
+        return array();
+    }
+    
+    return $rituals;
+}
+
+/**
+ * Verificar si un usuario puede asistir a un ritual según su rango
+ */
+function trash_can_attend_ritual($ritual_id, $user_id = null) {
+    if (!$user_id) {
+        $user_id = get_current_user_id();
+    }
+    
+    if (!$user_id || !trash_is_sect_member($user_id)) {
+        return false;
+    }
+    
+    // Obtener información del ritual
+    $ritual = get_post($ritual_id);
+    
+    if (!$ritual) {
+        return false;
+    }
+    
+    $required_rank = get_post_meta($ritual_id, 'ritual_rank_required', true);
+    
+    if (!$required_rank) {
+        // Si no hay rango requerido, cualquier miembro puede asistir
+        return true;
+    }
+    
+    // Obtener rango del usuario
+    $user_rank = trash_get_user_rank($user_id);
+    
+    // Lista de rangos en orden jerárquico
+    $ranks = array(
+        __('Novice Normative', 'trashgenero'),
+        __('Kitsch Disciple', 'trashgenero'),
+        __('Queer Apprentice', 'trashgenero'),
+        __('Provocative Priest', 'trashgenero'),
+        __('Glitch Bishop', 'trashgenero'),
+        __('Irreverent Cardinal', 'trashgenero'),
+        __('Trash Supreme Pontiff', 'trashgenero')
+    );
+    
+    // Obtener índices de los rangos
+    $user_rank_index = array_search($user_rank, $ranks);
+    $required_rank_index = array_search($required_rank, $ranks);
+    
+    // El usuario puede asistir si su rango es igual o superior al requerido
+    return $user_rank_index !== false && $required_rank_index !== false && $user_rank_index >= $required_rank_index;
+}
+
+/**
+ * Verificar si un usuario está confirmado para un ritual
+ */
+function trash_user_is_attending_ritual($ritual_id, $user_id = null) {
+    if (!$user_id) {
+        $user_id = get_current_user_id();
+    }
+    
+    if (!$user_id || !trash_is_sect_member($user_id)) {
+        return false;
+    }
+    
+    $user_rituals = trash_get_user_rituals($user_id);
+    
+    foreach ($user_rituals as $ritual) {
+        if ($ritual['id'] == $ritual_id && $ritual['status'] == 'confirmed') {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Verificar si un ritual tiene fotos
+ */
+function trash_ritual_has_photos($ritual_id) {
+    $photos = get_post_meta($ritual_id, 'ritual_photos', true);
+    
+    return !empty($photos);
+}
+
+/**
+ * Verificar si un ritual tiene testimonios
+ */
+function trash_ritual_has_testimonies($ritual_id) {
+    $testimonies = get_post_meta($ritual_id, 'ritual_testimonies', true);
+    
+    return !empty($testimonies);
+}
+
+/**
+ * Verificar si un usuario es de alto rango
+ */
+function trash_is_high_rank_member($user_id = null) {
+    if (!$user_id) {
+        $user_id = get_current_user_id();
+    }
+    
+    if (!$user_id || !trash_is_sect_member($user_id)) {
+        return false;
+    }
+    
+    $user_rank = trash_get_user_rank($user_id);
+    
+    // Rangos altos
+    $high_ranks = array(
+        __('Glitch Bishop', 'trashgenero'),
+        __('Irreverent Cardinal', 'trashgenero'),
+        __('Trash Supreme Pontiff', 'trashgenero')
+    );
+    
+    return in_array($user_rank, $high_ranks);
+}
+
+/**
+ * Obtener información de un miembro
+ */
+function trash_get_member_info($user_id) {
+    if (!$user_id || !trash_is_sect_member($user_id)) {
+        return false;
+    }
+    
+    $user = get_userdata($user_id);
+    
+    if (!$user) {
+        return false;
+    }
+    
+    return array(
+        'id' => $user_id,
+        'name' => $user->display_name,
+        'rank' => trash_get_user_rank($user_id),
+        'points' => trash_get_user_points($user_id),
+        'badges' => trash_get_user_badges($user_id)
+    );
+}
+
+/**
+ * Obtener puntos necesarios para un rango
+ */
+function trash_get_points_for_rank($rank) {
+    $rank_points = array(
+        __('Novice Normative', 'trashgenero') => 0,
+        __('Kitsch Disciple', 'trashgenero') => 100,
+        __('Queer Apprentice', 'trashgenero') => 500,
+        __('Provocative Priest', 'trashgenero') => 1000,
+        __('Glitch Bishop', 'trashgenero') => 2500,
+        __('Irreverent Cardinal', 'trashgenero') => 5000,
+        __('Trash Supreme Pontiff', 'trashgenero') => 10000
+    );
+    
+    if (isset($rank_points[$rank])) {
+        return $rank_points[$rank];
+    }
+    
+    return 0;
+}
+
+/**
+ * Calcular progreso hacia el siguiente rango
+ */
+function trash_calculate_rank_progress($user_id = null) {
+    if (!$user_id) {
+        $user_id = get_current_user_id();
+    }
+    
+    if (!$user_id || !trash_is_sect_member($user_id)) {
+        return 0;
+    }
+    
+    $user_rank = trash_get_user_rank($user_id);
+    $user_points = trash_get_user_points($user_id);
+    
+    // Lista de rangos en orden jerárquico con sus puntos
+    $ranks = array(
+        __('Novice Normative', 'trashgenero') => 0,
+        __('Kitsch Disciple', 'trashgenero') => 100,
+        __('Queer Apprentice', 'trashgenero') => 500,
+        __('Provocative Priest', 'trashgenero') => 1000,
+        __('Glitch Bishop', 'trashgenero') => 2500,
+        __('Irreverent Cardinal', 'trashgenero') => 5000,
+        __('Trash Supreme Pontiff', 'trashgenero') => 10000
+    );
+    
+    // Si ya es el rango máximo, retornar 100%
+    if ($user_rank == __('Trash Supreme Pontiff', 'trashgenero')) {
+        return 100;
+    }
+    
+    // Encontrar el rango actual y el siguiente
+    $current_rank_points = $ranks[$user_rank];
+    
+    // Encontrar el siguiente rango
+    $next_rank = null;
+    $next_rank_points = 0;
+    $found_current = false;
+    
+    foreach ($ranks as $rank => $points) {
+        if ($found_current) {
+            $next_rank = $rank;
+            $next_rank_points = $points;
+            break;
+        }
+        
+        if ($rank == $user_rank) {
+            $found_current = true;
+        }
+    }
+    
+    if (!$next_rank) {
+        // No hay siguiente rango (no debería ocurrir)
+        return 100;
+    }
+    
+    // Calcular progreso
+    $points_needed = $next_rank_points - $current_rank_points;
+    $points_gained = $user_points - $current_rank_points;
+    
+    $progress = ($points_gained / $points_needed) * 100;
+    
+    // Limitar a 0-100
+    return max(0, min(100, $progress));
+}
+
+/**
+ * Obtener el siguiente rango al que puede ascender el usuario
+ */
+function trash_get_next_rank($current_rank) {
+    $ranks = array(
+        __('Novice Normative', 'trashgenero'),
+        __('Kitsch Disciple', 'trashgenero'),
+        __('Queer Apprentice', 'trashgenero'),
+        __('Provocative Priest', 'trashgenero'),
+        __('Glitch Bishop', 'trashgenero'),
+        __('Irreverent Cardinal', 'trashgenero'),
+        __('Trash Supreme Pontiff', 'trashgenero')
+    );
+    
+    $current_index = array_search($current_rank, $ranks);
+    
+    if ($current_index === false || $current_index >= count($ranks) - 1) {
+        return __('Maximum rank reached', 'trashgenero');
+    }
+    
+    return $ranks[$current_index + 1];
+}
+
+/**
+ * Obtener icono para un rango
+ */
+function trash_get_rank_icon($rank) {
+    $rank_icons = array(
+        __('Novice Normative', 'trashgenero') => '⭐',
+        __('Kitsch Disciple', 'trashgenero') => '🌟',
+        __('Queer Apprentice', 'trashgenero') => '💫',
+        __('Provocative Priest', 'trashgenero') => '✨',
+        __('Glitch Bishop', 'trashgenero') => '🔮',
+        __('Irreverent Cardinal', 'trashgenero') => '💎',
+        __('Trash Supreme Pontiff', 'trashgenero') => '👑'
+    );
+    
+    if (isset($rank_icons[$rank])) {
+        return $rank_icons[$rank];
+    }
+    
+    return '⭐';
+}
+
+/**
+ * Obtener puntos de bonificación por producto
+ */
+function trash_get_sect_product_bonus($product_id) {
+    $bonus = get_post_meta($product_id, 'sect_points_bonus', true);
+    
+    if (!$bonus) {
+        // Bonificación por defecto
+        return 5;
+    }
+    
+    return (int) $bonus;
+}
+
+/**
+ * Verificar si un producto es exclusivo para la secta
+ */
+function trash_check_sect_exclusive($product_id) {
+    return (bool) get_post_meta($product_id, 'sect_exclusive', true);
+}
+
+/**
+ * Obtener contenido exclusivo para un producto según el rango
+ */
+function trash_get_sect_exclusive_content($product_id, $rank) {
+    $content = get_post_meta($product_id, "sect_exclusive_content_{$rank}", true);
+    
+    if (!$content) {
+        return '';
+    }
+    
+    return $content;
+}
+
+/**
+ * Obtener multiplicador de puntos según el rango
+ */
+function trash_get_sect_points_multiplier($rank) {
+    $multipliers = array(
+        __('Novice Normative', 'trashgenero') => 1,
+        __('Kitsch Disciple', 'trashgenero') => 1.2,
+        __('Queer Apprentice', 'trashgenero') => 1.5,
+        __('Provocative Priest', 'trashgenero') => 1.8,
+        __('Glitch Bishop', 'trashgenero') => 2,
+        __('Irreverent Cardinal', 'trashgenero') => 2.5,
+        __('Trash Supreme Pontiff', 'trashgenero') => 3
+    );
+    
+    if (isset($multipliers[$rank])) {
+        return $multipliers[$rank];
+    }
+    
+    return 1;
+}
+
+/**
+ * Shortcode para formulario de unirse a la secta
+ */
+function trash_sect_join_form_shortcode() {
+    if (trash_is_sect_member()) {
+        return '<div class="sect-already-member">' . __('You are already a member of the Fashion Killer Sect.', 'trashgenero') . '</div>';
+    }
+    
+    if (!is_user_logged_in()) {
+        return '<div class="sect-login-required">' . 
+            __('You must be logged in to join the Fashion Killer Sect.', 'trashgenero') . 
+            '<p><a href="' . wp_login_url(get_permalink()) . '" class="login-link">' . __('Log In', 'trashgenero') . '</a></p>' .
+            '</div>';
+    }
+    
+    $output = '<form class="join-sect-form" method="post" action="">';
+    $output .= wp_nonce_field('join_sect_action', 'join_sect_nonce', true, false);
+    $output .= '<div class="form-group">';
+    $output .= '<input type="checkbox" id="accept_oath" name="accept_oath" required>';
+    $output .= '<label for="accept_oath">' . __('I accept the Trashgènero oath and want to join the Fashion Killer Sect', 'trashgenero') . '</label>';
+    $output .= '</div>';
+    $output .= '<div class="form-submit">';
+    $output .= '<button type="submit" name="join_sect_submit" class="neon-button join-sect-btn">' . __('Join the Sect', 'trashgenero') . '</button>';
+    $output .= '</div>';
+    $output .= '</form>';
+    
+    return $output;
+}
+add_shortcode('sect_join_form', 'trash_sect_join_form_shortcode');
+
+/**
+ * Procesar formulario de unirse a la secta
+ */
+function trash_process_join_sect_form() {
+    if (!isset($_POST['join_sect_submit']) || !isset($_POST['join_sect_nonce'])) {
+        return;
+    }
+    
+    if (!wp_verify_nonce($_POST['join_sect_nonce'], 'join_sect_action')) {
+        wp_die(__('Security check failed. Please try again.', 'trashgenero'));
+    }
+    
+    if (!is_user_logged_in()) {
+        wp_die(__('You must be logged in to join the sect.', 'trashgenero'));
+    }
+    
+    if (!isset($_POST['accept_oath'])) {
+        wp_die(__('You must accept the oath to join the sect.', 'trashgenero'));
+    }
+    
+    $user_id = get_current_user_id();
+    
+    // Verificar si ya es miembro
+    if (trash_is_sect_member($user_id)) {
+        wp_redirect(get_permalink());
+        exit;
+    }
+    
+    // Hacer al usuario miembro de la secta
+    update_user_meta($user_id, 'trash_sect_member', true);
+    update_user_meta($user_id, 'trash_sect_rank', __('Novice Normative', 'trashgenero'));
+    update_user_meta($user_id, 'trash_sect_points', 0);
+    
+    // Añadir insignia de iniciación
+    $initiate_badge = array(
+        'id' => 'badge_initiate',
+        'icon' => '⭐',
+        'title' => __('Fashion Killer Initiate', 'trashgenero'),
+        'description' => __('You have accepted the oath and joined the sect', 'trashgenero'),
+        'color' => '#ff00ff',
+        'date_earned' => current_time('mysql')
+    );
+    
+    update_user_meta($user_id, 'trash_sect_badges', array($initiate_badge));
+    
+    // Redirigir a la página de la secta
+    wp_redirect(get_permalink(get_page_by_path('secta')));
+    exit;
+}
+add_action('template_redirect', 'trash_process_join_sect_form');
+
+/**
+ * Shortcode para mostrar próximos rituales
+ */
+function trash_upcoming_rituals_shortcode($atts) {
+    $atts = shortcode_atts(array(
+        'limit' => 3
+    ), $atts);
+    
+    if (!is_user_logged_in() || !trash_is_sect_member()) {
+        return '<div class="sect-login-required">' . __('You must be a member of the Fashion Killer Sect to view upcoming rituals.', 'trashgenero') . '</div>';
+    }
+    
+    $user_rank = trash_get_user_rank();
+    
+    // Query para obtener rituales futuros
+    $args = array(
+        'post_type' => 'ritual',
+        'posts_per_page' => (int) $atts['limit'],
+        'meta_key' => 'ritual_date',
+        'orderby' => 'meta_value',
+        'order' => 'ASC',
+        'meta_query' => array(
+            array(
+                'key' => 'ritual_date',
+                'value' => date('Y-m-d'),
+                'compare' => '>=',
+                'type' => 'DATE'
+            )
+        )
+    );
+    
+    $rituals_query = new WP_Query($args);
+    
+    if (!$rituals_query->have_posts()) {
+        return '<div class="no-rituals">' . __('No upcoming rituals scheduled at this time.', 'trashgenero') . '</div>';
+    }
+    
+    $output = '<div class="upcoming-rituals-list">';
+    
+    while ($rituals_query->have_posts()) {
+        $rituals_query->the_post();
+        
+        $ritual_id = get_the_ID();
+        $ritual_date = get_post_meta($ritual_id, 'ritual_date', true);
+        $ritual_time = get_post_meta($ritual_id, 'ritual_time', true);
+        $ritual_location = get_post_meta($ritual_id, 'ritual_location', true);
+        $ritual_rank_required = get_post_meta($ritual_id, 'ritual_rank_required', true);
+        $ritual_points = get_post_meta($ritual_id, 'ritual_points', true);
+        
+        // Verificar si el usuario puede asistir
+        $can_attend = trash_can_attend_ritual($ritual_id);
+        $is_attending = trash_user_is_attending_ritual($ritual_id);
+        
+        $output .= '<div class="ritual-preview' . ($is_attending ? ' attending' : '') . ($can_attend ? '' : ' restricted') . '">';
+        $output .= '<div class="ritual-date">' . date_i18n(get_option('date_format'), strtotime($ritual_date)) . ' - ' . esc_html($ritual_time) . '</div>';
+        $output .= '<h3 class="ritual-title"><a href="' . get_permalink() . '">' . get_the_title() . '</a></h3>';
+        
+        $output .= '<div class="ritual-details">';
+        $output .= '<div class="ritual-location"><span>' . __('Location:', 'trashgenero') . '</span> ' . esc_html($ritual_location) . '</div>';
+        $output .= '<div class="ritual-rank"><span>' . __('Rank required:', 'trashgenero') . '</span> ' . esc_html($ritual_rank_required) . '</div>';
+        $output .= '<div class="ritual-points"><span>' . __('Points:', 'trashgenero') . '</span> ' . esc_html($ritual_points) . '</div>';
+        $output .= '</div>';
+        
+        $output .= '<div class="ritual-status">';
+        if ($is_attending) {
+            $output .= '<span class="status-confirmed">' . __('Your attendance is confirmed', 'trashgenero') . '</span>';
+        } elseif ($can_attend) {
+            $output .= '<a href="' . get_permalink() . '" class="pixel-button">' . __('Confirm attendance', 'trashgenero') . '</a>';
+        } else {
+            $output .= '<span class="status-restricted">' . __('Your rank is insufficient', 'trashgenero') . '</span>';
+        }
+        $output .= '</div>';
+        
+        $output .= '</div>';
+    }
+    
+    $output .= '</div>';
+    
+    wp_reset_postdata();
+    
+    return $output;
+}
+add_shortcode('upcoming_rituals', 'trash_upcoming_rituals_shortcode');
+
+/**
+ * Shortcode para mostrar misiones activas
+ */
+function trash_active_missions_shortcode($atts) {
+    $atts = shortcode_atts(array(
+        'limit' => 3
+    ), $atts);
+    
+    if (!is_user_logged_in() || !trash_is_sect_member()) {
+        return '<div class="sect-login-required">' . __('You must be a member of the Fashion Killer Sect to view missions.', 'trashgenero') . '</div>';
+    }
+    
+    $user_id = get_current_user_id();
+    $user_missions = trash_get_user_missions($user_id);
+    
+    if (empty($user_missions)) {
+        // Mostrar misiones por defecto si el usuario no tiene ninguna
+        $default_missions = array(
+            array(
+                'id' => 'mission1',
+                'title' => __('Challenge the Binaries', 'trashgenero'),
+                'description' => __('Wear an item that does not correspond to your assigned gender and share a photo.', 'trashgenero'),
+                'type' => 'daily',
+                'points' => 20,
+                'progress' => 0,
+                'total' => 1
+            ),
+            array(
+                'id' => 'mission2',
+                'title' => __('Kitsch Intervention', 'trashgenero'),
+                'description' => __('Intervene in a public space with kitsch elements and share the result.', 'trashgenero'),
+                'type' => 'weekly',
+                'points' => 50,
+                'progress' => 0,
+                'total' => 3
+            ),
+            array(
+                'id' => 'mission3',
+                'title' => __('Aesthetic Manifesto', 'trashgenero'),
+                'description' => __('Write your own trash manifesto and share it on social media.', 'trashgenero'),
+                'type' => 'unique',
+                'points' => 30,
+                'progress' => 0,
+                'total' => 1
+            )
+        );
+        
+        // Filtrar para mostrar solo la cantidad solicitada
+        $missions_to_show = array_slice($default_missions, 0, (int) $atts['limit']);
+        
+        $output = '<div class="active-missions-list">';
+        
+        foreach ($missions_to_show as $mission) {
+            $progress_percent = ($mission['progress'] / $mission['total']) * 100;
+            
+            $output .= '<div class="mission-preview mission-' . esc_attr($mission['type']) . '">';
+            $output .= '<div class="mission-header">';
+            $output .= '<span class="mission-type">' . esc_html(ucfirst($mission['type'])) . '</span>';
+            $output .= '<span class="mission-points">+' . esc_html($mission['points']) . ' ' . __('points', 'trashgenero') . '</span>';
+            $output .= '</div>';
+            $output .= '<h3 class="mission-title">' . esc_html($mission['title']) . '</h3>';
+            $output .= '<div class="mission-description">' . esc_html($mission['description']) . '</div>';
+            $output .= '<div class="mission-progress">';
+            $output .= '<div class="progress-bar"><div class="progress-fill" style="width: ' . esc_attr($progress_percent) . '%;"></div></div>';
+            $output .= '<div class="progress-text">' . esc_html($mission['progress']) . '/' . esc_html($mission['total']) . '</div>';
+            $output .= '</div>';
+            $output .= '<a href="' . esc_url(home_url('/secta/misiones/')) . '" class="pixel-button">' . __('Complete', 'trashgenero') . '</a>';
+            $output .= '</div>';
+        }
+        
+        $output .= '</div>';
+        
+        return $output;
+    }
+    
+    // Filtrar para mostrar solo las misiones activas y no completadas
+    $active_missions = array_filter($user_missions, function($mission) {
+        return isset($mission['status']) && $mission['status'] == 'active';
+    });
+    
+    // Ordenar por tipo (diario, semanal, único)
+    usort($active_missions, function($a, $b) {
+        $type_order = array('daily' => 1, 'weekly' => 2, 'unique' => 3);
+        return $type_order[$a['type']] - $type_order[$b['type']];
+    });
+    
+    // Limitar a la cantidad solicitada
+    $missions_to_show = array_slice($active_missions, 0, (int) $atts['limit']);
+    
+    if (empty($missions_to_show)) {
+        return '<div class="no-missions">' . __('You have no active missions at this time.', 'trashgenero') . '</div>';
+    }
+    
+    $output = '<div class="active-missions-list">';
+    
+    foreach ($missions_to_show as $mission) {
+        $progress_percent = ($mission['progress'] / $mission['total']) * 100;
+        
+        $output .= '<div class="mission-preview mission-' . esc_attr($mission['type']) . '">';
+        $output .= '<div class="mission-header">';
+        $output .= '<span class="mission-type">' . esc_html(ucfirst($mission['type'])) . '</span>';
+        $output .= '<span class="mission-points">+' . esc_html($mission['points']) . ' ' . __('points', 'trashgenero') . '</span>';
+        $output .= '</div>';
+        $output .= '<h3 class="mission-title">' . esc_html($mission['title']) . '</h3>';
+        $output .= '<div class="mission-description">' . esc_html($mission['description']) . '</div>';
+        $output .= '<div class="mission-progress">';
+        $output .= '<div class="progress-bar"><div class="progress-fill" style="width: ' . esc_attr($progress_percent) . '%;"></div></div>';
+        $output .= '<div class="progress-text">' . esc_html($mission['progress']) . '/' . esc_html($mission['total']) . '</div>';
+        $output .= '</div>';
+        $output .= '<a href="' . esc_url(home_url('/secta/misiones/')) . '" class="pixel-button">' . __('Complete', 'trashgenero') . '</a>';
+        $output .= '</div>';
+    }
+    
+    $output .= '</div>';
+    
+    return $output;
+}
+add_shortcode('active_missions', 'trash_active_missions_shortcode');
+
+/**
+ * Shortcode para testimonios de la secta
+ */
+function trash_sect_testimonials_shortcode($atts) {
+    $atts = shortcode_atts(array(
+        'limit' => 3
+    ), $atts);
+    
+    // Datos estáticos para la demo
+    $testimonials = array(
+        array(
+            'name' => 'darkglitch23',
+            'rank' => __('Irreverent Cardinal', 'trashgenero'),
+            'text' => __('Joining the Fashion Killer Sect completely changed my relationship with fashion. I no longer follow trends but create glitches in the normative system.', 'trashgenero')
+        ),
+        array(
+            'name' => 'kitschqueenXXX',
+            'rank' => __('Glitch Bishop', 'trashgenero'),
+            'text' => __('The ritual experiences are absolutely mind-blowing. I\'ve found my aesthetic family in this sect.', 'trashgenero')
+        ),
+        array(
+            'name' => 'trashkid99',
+            'rank' => __('Queer Apprentice', 'trashgenero'),
+            'text' => __('As a new member, I\'ve already gained so much from the community. The exclusive content alone is worth joining!', 'trashgenero')
+        ),
+        array(
+            'name' => 'cyberwitchUwU',
+            'rank' => __('Kitsch Disciple', 'trashgenero'),
+            'text' => __('The sect helped me embrace my most kitsch and provocative side. Now I\'m a walking challenge to normative aesthetics.', 'trashgenero')
+        ),
+        array(
+            'name' => 'vhs_decay',
+            'rank' => __('Provocative Priest', 'trashgenero'),
+            'text' => __('The missions push you out of your comfort zone in the best possible way. I\'ve never felt more transgressive.', 'trashgenero')
+        )
+    );
+    
+    // Mezclar y limitar
+    shuffle($testimonials);
+    $testimonials = array_slice($testimonials, 0, (int) $atts['limit']);
+    
+    $output = '<div class="sect-testimonials-list">';
+    
+    foreach ($testimonials as $testimonial) {
+        $output .= '<div class="testimonial-item">';
+        $output .= '<div class="testimonial-quote">"' . esc_html($testimonial['text']) . '"</div>';
+        $output .= '<div class="testimonial-author">';
+        $output .= '<span class="author-name">' . esc_html($testimonial['name']) . '</span>';
+        $output .= '<span class="author-rank">' . esc_html($testimonial['rank']) . '</span>';
+        $output .= '</div>';
+        $output .= '</div>';
+    }
+    
+    $output .= '</div>';
+    
+    return $output;
+}
+add_shortcode('sect_testimonials', 'trash_sect_testimonials_shortcode');
+
+/**
+ * Registrar Custom Post Type para Rituales
+ */
+function trash_register_ritual_post_type() {
+    $labels = array(
+        'name'                  => _x('Rituals', 'Post type general name', 'trashgenero'),
+        'singular_name'         => _x('Ritual', 'Post type singular name', 'trashgenero'),
+        'menu_name'             => _x('Rituals', 'Admin Menu text', 'trashgenero'),
+        'name_admin_bar'        => _x('Ritual', 'Add New on Toolbar', 'trashgenero'),
+        'add_new'               => __('Add New', 'trashgenero'),
+        'add_new_item'          => __('Add New Ritual', 'trashgenero'),
+        'new_item'              => __('New Ritual', 'trashgenero'),
+        'edit_item'             => __('Edit Ritual', 'trashgenero'),
+        'view_item'             => __('View Ritual', 'trashgenero'),
+        'all_items'             => __('All Rituals', 'trashgenero'),
+        'search_items'          => __('Search Rituals', 'trashgenero'),
+        'parent_item_colon'     => __('Parent Rituals:', 'trashgenero'),
+        'not_found'             => __('No rituals found.', 'trashgenero'),
+        'not_found_in_trash'    => __('No rituals found in Trash.', 'trashgenero'),
+    );
+    
+    $args = array(
+        'labels'                => $labels,
+        'public'                => true,
+        'publicly_queryable'    => true,
+        'show_ui'               => true,
+        'show_in_menu'          => true,
+        'query_var'             => true,
+        'rewrite'               => array('slug' => 'ritual'),
+        'capability_type'       => 'post',
+        'has_archive'           => true,
+        'hierarchical'          => false,
+        'menu_position'         => null,
+        'menu_icon'             => 'dashicons-groups',
+        'supports'              => array('title', 'editor', 'thumbnail', 'excerpt'),
+    );
+    
+    register_post_type('ritual', $args);
+}
+add_action('init', 'trash_register_ritual_post_type');
+
+/**
+ * Añadir metaboxes para rituales
+ */
+function trash_add_ritual_meta_boxes() {
+    add_meta_box(
+        'ritual_details',
+        __('Ritual Details', 'trashgenero'),
+        'trash_render_ritual_details_meta_box',
+        'ritual',
+        'normal',
+        'high'
+    );
+}
+add_action('add_meta_boxes', 'trash_add_ritual_meta_boxes');
+
+/**
+ * Renderizar metabox de detalles de ritual
+ */
+function trash_render_ritual_details_meta_box($post) {
+    // Añadir nonce para verificación
+    wp_nonce_field('trash_ritual_meta_box', 'trash_ritual_meta_box_nonce');
+    
+    // Obtener valores actuales
+    $ritual_id = get_post_meta($post->ID, 'ritual_id', true);
+    $ritual_date = get_post_meta($post->ID, 'ritual_date', true);
+    $ritual_time = get_post_meta($post->ID, 'ritual_time', true);
+    $ritual_location = get_post_meta($post->ID, 'ritual_location', true);
+    $ritual_capacity = get_post_meta($post->ID, 'ritual_capacity', true);
+    $ritual_attendees_count = get_post_meta($post->ID, 'ritual_attendees_count', true);
+    $ritual_rank_required = get_post_meta($post->ID, 'ritual_rank_required', true);
+    $ritual_points = get_post_meta($post->ID, 'ritual_points', true);
+    $ritual_type = get_post_meta($post->ID, 'ritual_type', true);
+    
+    // Si no hay ID generado, crear uno
+    if (!$ritual_id) {
+        $ritual_id = 'ritual_' . uniqid();
+    }
+    
+    // Lista de rangos
+    $ranks = array(
+        __('Novice Normative', 'trashgenero'),
+        __('Kitsch Disciple', 'trashgenero'),
+        __('Queer Apprentice', 'trashgenero'),
+        __('Provocative Priest', 'trashgenero'),
+        __('Glitch Bishop', 'trashgenero'),
+        __('Irreverent Cardinal', 'trashgenero'),
+        __('Trash Supreme Pontiff', 'trashgenero')
+    );
+    
+    // Lista de tipos de ritual
+    $ritual_types = array(
+        'initiation' => __('Initiation', 'trashgenero'),
+        'transformation' => __('Transformation', 'trashgenero'),
+        'provocation' => __('Provocation', 'trashgenero'),
+        'consecration' => __('Consecration', 'trashgenero'),
+        'secret' => __('Secret', 'trashgenero')
+    );
+    
+    // Formulario
+    ?>
+    <style>
+        .ritual-meta-field {
+            margin-bottom: 15px;
+        }
+        .ritual-meta-field label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+        .ritual-meta-field input[type="text"],
+        .ritual-meta-field input[type="date"],
+        .ritual-meta-field input[type="time"],
+        .ritual-meta-field input[type="number"],
+        .ritual-meta-field select {
+            width: 300px;
+        }
+    </style>
+    
+    <div class="ritual-meta-field">
+        <label for="ritual_id"><?php _e('Ritual ID:', 'trashgenero'); ?></label>
+        <input type="text" id="ritual_id" name="ritual_id" value="<?php echo esc_attr($ritual_id); ?>" readonly>
+        <p class="description"><?php _e('Unique identifier for this ritual (auto-generated).', 'trashgenero'); ?></p>
+    </div>
+    
+    <div class="ritual-meta-field">
+        <label for="ritual_date"><?php _e('Date:', 'trashgenero'); ?></label>
+        <input type="date" id="ritual_date" name="ritual_date" value="<?php echo esc_attr($ritual_date); ?>" required>
+    </div>
+    
+    <div class="ritual-meta-field">
+        <label for="ritual_time"><?php _e('Time:', 'trashgenero'); ?></label>
+        <input type="time" id="ritual_time" name="ritual_time" value="<?php echo esc_attr($ritual_time); ?>" required>
+    </div>
+    
+    <div class="ritual-meta-field">
+        <label for="ritual_location"><?php _e('Location:', 'trashgenero'); ?></label>
+        <input type="text" id="ritual_location" name="ritual_location" value="<?php echo esc_attr($ritual_location); ?>" required>
+    </div>
+    
+    <div class="ritual-meta-field">
+        <label for="ritual_capacity"><?php _e('Capacity:', 'trashgenero'); ?></label>
+        <input type="number" id="ritual_capacity" name="ritual_capacity" value="<?php echo esc_attr($ritual_capacity); ?>" min="1" required>
+    </div>
+    
+    <div class="ritual-meta-field">
+        <label for="ritual_attendees_count"><?php _e('Current Attendees:', 'trashgenero'); ?></label>
+        <input type="number" id="ritual_attendees_count" name="ritual_attendees_count" value="<?php echo esc_attr($ritual_attendees_count); ?>" min="0">
+    </div>
+    
+    <div class="ritual-meta-field">
+        <label for="ritual_rank_required"><?php _e('Rank Required:', 'trashgenero'); ?></label>
+        <select id="ritual_rank_required" name="ritual_rank_required">
+            <?php foreach ($ranks as $rank) : ?>
+                <option value="<?php echo esc_attr($rank); ?>" <?php selected($ritual_rank_required, $rank); ?>><?php echo esc_html($rank); ?></option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    
+    <div class="ritual-meta-field">
+        <label for="ritual_points"><?php _e('Points Reward:', 'trashgenero'); ?></label>
+        <input type="number" id="ritual_points" name="ritual_points" value="<?php echo esc_attr($ritual_points); ?>" min="0" required>
+    </div>
+    
+    <div class="ritual-meta-field">
+        <label for="ritual_type"><?php _e('Ritual Type:', 'trashgenero'); ?></label>
+        <select id="ritual_type" name="ritual_type">
+            <?php foreach ($ritual_types as $value => $label) : ?>
+                <option value="<?php echo esc_attr($value); ?>" <?php selected($ritual_type, $value); ?>><?php echo esc_html($label); ?></option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    <?php
+}
+
+/**
+ * Guardar metadatos de ritual
+ */
+function trash_save_ritual_meta($post_id) {
+    // Verificar nonce
+    if (!isset($_POST['trash_ritual_meta_box_nonce']) || !wp_verify_nonce($_POST['trash_ritual_meta_box_nonce'], 'trash_ritual_meta_box')) {
+        return;
+    }
+    
+    // Verificar autoguardado
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+        return;
+    }
+    
+    // Verificar permisos
+    if (!current_user_can('edit_post', $post_id)) {
+        return;
+    }
+    
+    // Guardar campos
+    if (isset($_POST['ritual_id'])) {
+        update_post_meta($post_id, 'ritual_id', sanitize_text_field($_POST['ritual_id']));
+    }
+    
+    if (isset($_POST['ritual_date'])) {
+        update_post_meta($post_id, 'ritual_date', sanitize_text_field($_POST['ritual_date']));
+    }
+    
+    if (isset($_POST['ritual_time'])) {
+        update_post_meta($post_id, 'ritual_time', sanitize_text_field($_POST['ritual_time']));
+    }
+    
+    if (isset($_POST['ritual_location'])) {
+        update_post_meta($post_id, 'ritual_location', sanitize_text_field($_POST['ritual_location']));
+    }
+    
+    if (isset($_POST['ritual_capacity'])) {
+        update_post_meta($post_id, 'ritual_capacity', intval($_POST['ritual_capacity']));
+    }
+    
+    if (isset($_POST['ritual_attendees_count'])) {
+        update_post_meta($post_id, 'ritual_attendees_count', intval($_POST['ritual_attendees_count']));
+    }
+    
+    if (isset($_POST['ritual_rank_required'])) {
+        update_post_meta($post_id, 'ritual_rank_required', sanitize_text_field($_POST['ritual_rank_required']));
+    }
+    
+    if (isset($_POST['ritual_points'])) {
+        update_post_meta($post_id, 'ritual_points', intval($_POST['ritual_points']));
+    }
+    
+    if (isset($_POST['ritual_type'])) {
+        update_post_meta($post_id, 'ritual_type', sanitize_text_field($_POST['ritual_type']));
+    }
+}
+add_action('save_post_ritual', 'trash_save_ritual_meta');
+
+/**
+ * Registrar endpoint AJAX para completar misiones
+ */
+function trash_complete_mission_ajax_handler() {
+    // Verificar nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'trashgenero-nonce')) {
+        wp_send_json_error(array('message' => __('Security verification failed.', 'trashgenero')));
+    }
+    
+    // Verificar usuario
+    if (!is_user_logged_in() || !trash_is_sect_member()) {
+        wp_send_json_error(array('message' => __('You must be a member of the sect to complete missions.', 'trashgenero')));
+    }
+    
+    // Verificar misión
+    if (!isset($_POST['mission_id'])) {
+        wp_send_json_error(array('message' => __('No mission specified.', 'trashgenero')));
+    }
+    
+    $mission_id = sanitize_text_field($_POST['mission_id']);
+    $user_id = get_current_user_id();
+    
+    // Obtener misiones del usuario
+    $user_missions = trash_get_user_missions($user_id);
+    
+    // Buscar la misión
+    $mission_found = false;
+    foreach ($user_missions as &$mission) {
+        if ($mission['id'] == $mission_id) {
+            $mission_found = true;
+            
+            // Verificar si ya está completada
+            if (isset($mission['status']) && $mission['status'] == 'completed') {
+                wp_send_json_error(array('message' => __('This mission is already completed.', 'trashgenero')));
+            }
+            
+            // Incrementar progreso
+            $mission['progress'] = min($mission['total'], $mission['progress'] + 1);
+            
+            // Verificar si se ha completado
+            if ($mission['progress'] >= $mission['total']) {
+                $mission['status'] = 'completed';
+                $mission['completed_date'] = current_time('mysql');
+                
+                // Otorgar puntos
+                $current_points = trash_get_user_points($user_id);
+                update_user_meta($user_id, 'trash_sect_points', $current_points + $mission['points']);
+                
+                // Verificar si sube de rango
+                trash_check_rank_up($user_id);
+                
+                $response = array(
+                    'message' => sprintf(__('Mission completed! You earned %d points.', 'trashgenero'), $mission['points']),
+                    'points' => $mission['points'],
+                    'total_points' => $current_points + $mission['points'],
+                    'mission_completed' => true,
+                    'new_rank' => trash_get_user_rank($user_id)
+                );
+            } else {
+                $response = array(
+                    'message' => sprintf(__('Progress updated: %d/%d', 'trashgenero'), $mission['progress'], $mission['total']),
+                    'progress' => $mission['progress'],
+                    'total' => $mission['total'],
+                    'mission_completed' => false
+                );
+            }
+            
+            break;
+        }
+    }
+    
+    if (!$mission_found) {
+        wp_send_json_error(array('message' => __('Mission not found.', 'trashgenero')));
+    }
+    
+    // Guardar misiones actualizadas
+    update_user_meta($user_id, 'trash_sect_missions', $user_missions);
+    
+    wp_send_json_success($response);
+}
+add_action('wp_ajax_trash_complete_mission', 'trash_complete_mission_ajax_handler');
+
+/**
+ * Verificar si un usuario sube de rango
+ */
+function trash_check_rank_up($user_id) {
+    if (!$user_id || !trash_is_sect_member($user_id)) {
+        return false;
+    }
+    
+    $current_rank = trash_get_user_rank($user_id);
+    $current_points = trash_get_user_points($user_id);
+    
+    // Rangos y puntos necesarios
+    $ranks = array(
+        __('Novice Normative', 'trashgenero') => 0,
+        __('Kitsch Disciple', 'trashgenero') => 100,
+        __('Queer Apprentice', 'trashgenero') => 500,
+        __('Provocative Priest', 'trashgenero') => 1000,
+        __('Glitch Bishop', 'trashgenero') => 2500,
+        __('Irreverent Cardinal', 'trashgenero') => 5000,
+        __('Trash Supreme Pontiff', 'trashgenero') => 10000
+    );
+    
+    // Encontrar el siguiente rango
+    $current_rank_index = array_search($current_rank, array_keys($ranks));
+    $rank_up = false;
+    
+    for ($i = $current_rank_index + 1; $i < count($ranks); $i++) {
+        $rank_name = array_keys($ranks)[$i];
+        $required_points = $ranks[$rank_name];
+        
+        if ($current_points >= $required_points) {
+            // Actualizar rango del usuario
+            update_user_meta($user_id, 'trash_sect_rank', $rank_name);
+            
+            // Añadir insignia de nuevo rango
+            $user_badges = trash_get_user_badges($user_id);
+            
+            $new_badge = array(
+                'id' => 'badge_rank_' . sanitize_title($rank_name),
+                'icon' => trash_get_rank_icon($rank_name),
+                'title' => sprintf(__('Rank: %s', 'trashgenero'), $rank_name),
+                'description' => sprintf(__('You have reached the rank of %s', 'trashgenero'), $rank_name),
+                'color' => '#bd00ff',
+                'date_earned' => current_time('mysql')
+            );
+            
+            $user_badges[] = $new_badge;
+            update_user_meta($user_id, 'trash_sect_badges', $user_badges);
+            
+            $rank_up = true;
+        } else {
+            break;
+        }
+    }
+    
+    return $rank_up;
+}
+
+/**
+ * Añadir campo de puntos de secta a productos
+ */
+function trash_add_product_sect_fields() {
+    global $woocommerce, $post;
+    
+    echo '<div class="options_group">';
+    
+    // Puntos de bonificación
+    woocommerce_wp_text_input(
+        array(
+            'id' => 'sect_points_bonus',
+            'label' => __('Sect Points Bonus', 'trashgenero'),
+            'description' => __('Points earned by sect members when purchasing this product.', 'trashgenero'),
+            'type' => 'number',
+            'custom_attributes' => array(
+                'step' => '1',
+                'min' => '0'
+            )
+        )
+    );
+    
+    // Producto exclusivo
+    woocommerce_wp_checkbox(
+        array(
+            'id' => 'sect_exclusive',
+            'label' => __('Sect Exclusive', 'trashgenero'),
+            'description' => __('Only sect members can purchase this product.', 'trashgenero')
+        )
+    );
+    
+    echo '</div>';
+    
+    echo '<div class="options_group">';
+    echo '<h4>' . __('Exclusive Content for Sect Ranks', 'trashgenero') . '</h4>';
+    
+    // Contenido exclusivo para cada rango
+    $ranks = array(
+        __('Kitsch Disciple', 'trashgenero'),
+        __('Queer Apprentice', 'trashgenero'),
+        __('Provocative Priest', 'trashgenero'),
+        __('Glitch Bishop', 'trashgenero'),
+        __('Irreverent Cardinal', 'trashgenero'),
+        __('Trash Supreme Pontiff', 'trashgenero')
+    );
+    
+    foreach ($ranks as $rank) {
+        $field_id = 'sect_exclusive_content_' . sanitize_title($rank);
+        
+        woocommerce_wp_textarea_input(
+            array(
+                'id' => $field_id,
+                'label' => sprintf(__('Content for %s', 'trashgenero'), $rank),
+                'description' => sprintf(__('Exclusive content visible only to members with rank %s or higher.', 'trashgenero'), $rank),
+                'desc_tip' => true
+            )
+        );
+    }
+    
+    echo '</div>';
+}
+add_action('woocommerce_product_options_general_product_data', 'trash_add_product_sect_fields');
+
+/**
+ * Guardar campos de secta en productos
+ */
+function trash_save_product_sect_fields($post_id) {
+    // Puntos de bonificación
+    if (isset($_POST['sect_points_bonus'])) {
+        update_post_meta($post_id, 'sect_points_bonus', sanitize_text_field($_POST['sect_points_bonus']));
+    }
+    
+    // Producto exclusivo
+    $sect_exclusive = isset($_POST['sect_exclusive']) ? 'yes' : 'no';
+    update_post_meta($post_id, 'sect_exclusive', $sect_exclusive);
+    
+    // Contenido exclusivo para cada rango
+    $ranks = array(
+        __('Kitsch Disciple', 'trashgenero'),
+        __('Queer Apprentice', 'trashgenero'),
+        __('Provocative Priest', 'trashgenero'),
+        __('Glitch Bishop', 'trashgenero'),
+        __('Irreverent Cardinal', 'trashgenero'),
+        __('Trash Supreme Pontiff', 'trashgenero')
+    );
+    
+    foreach ($ranks as $rank) {
+        $field_id = 'sect_exclusive_content_' . sanitize_title($rank);
+        
+        if (isset($_POST[$field_id])) {
+            update_post_meta($post_id, $field_id, wp_kses_post($_POST[$field_id]));
+        }
+    }
+}
+add_action('woocommerce_process_product_meta', 'trash_save_product_sect_fields');
+
+/**
+ * Limitar acceso a productos exclusivos de la secta
+ */
+function trash_restrict_exclusive_products() {
+    if (is_singular('product')) {
+        global $post;
+        
+        $is_exclusive = get_post_meta($post->ID, 'sect_exclusive', true) === 'yes';
+        
+        if ($is_exclusive && (!is_user_logged_in() || !trash_is_sect_member())) {
+            // Redirigir a la página de la secta
+            wp_redirect(get_permalink(get_page_by_path('secta')));
+            exit;
+        }
+    }
+}
+add_action('template_redirect', 'trash_restrict_exclusive_products');
+
+/**
+ * Añadir etiqueta de producto exclusivo en listados
+ */
+function trash_show_exclusive_label() {
+    global $product;
+    
+    if (get_post_meta($product->get_id(), 'sect_exclusive', true) === 'yes') {
+        echo '<span class="sect-exclusive-tag">' . __('SECT EXCLUSIVE', 'trashgenero') . '</span>';
+    }
+}
+add_action('woocommerce_before_shop_loop_item_title', 'trash_show_exclusive_label', 10);
+add_action('woocommerce_before_single_product_summary', 'trash_show_exclusive_label', 10);
+
+/**
+ * Añadir información de puntos en productos
+ */
+function trash_show_sect_points_info() {
+    global $product;
+    
+    if (!is_user_logged_in() || !trash_is_sect_member()) {
+        return;
+    }
+    
+    $points = trash_get_sect_product_bonus($product->get_id());
+    $user_rank = trash_get_user_rank();
+    $multiplier = trash_get_sect_points_multiplier($user_rank);
+    $total_points = round($points * $multiplier);
+    
+    echo '<div class="sect-product-points">';
+    echo '<span class="points-label">' . __('Sect reward:', 'trashgenero') . '</span> ';
+    echo '<span class="points-value">' . sprintf(__('%d transgressive points', 'trashgenero'), $total_points) . '</span>';
+    
+    if ($multiplier > 1) {
+        echo ' <span class="points-multiplier">(' . sprintf(__('%sx multiplier for your rank', 'trashgenero'), $multiplier) . ')</span>';
+    }
+    
+    echo '</div>';
+}
+add_action('woocommerce_single_product_summary', 'trash_show_sect_points_info', 25);
+add_action('woocommerce_after_shop_loop_item_title', 'trash_show_sect_points_info', 15);
+
+/**
+ * Mostrar contenido exclusivo en productos
+ */
+function trash_show_exclusive_product_content() {
+    global $product;
+    
+    if (!is_user_logged_in() || !trash_is_sect_member()) {
+        return;
+    }
+    
+    $user_rank = trash_get_user_rank();
+    $content = trash_get_sect_exclusive_content($product->get_id(), $user_rank);
+    
+    if (!empty($content)) {
+        echo '<div class="sect-exclusive-content">';
+        echo '<h3 class="exclusive-title">' . sprintf(__('Exclusive content for %s', 'trashgenero'), $user_rank) . '</h3>';
+        echo '<div class="exclusive-content">' . wpautop($content) . '</div>';
+        echo '</div>';
+    }
+}
+add_action('woocommerce_after_single_product_summary', 'trash_show_exclusive_product_content', 15);
+
+/**
+ * Otorgar puntos tras completar una compra
+ */
+function trash_add_points_after_purchase($order_id) {
+    $order = wc_get_order($order_id);
+    $user_id = $order->get_user_id();
+    
+    if (!$user_id || !trash_is_sect_member($user_id)) {
+        return;
+    }
+    
+    $user_rank = trash_get_user_rank($user_id);
+    $multiplier = trash_get_sect_points_multiplier($user_rank);
+    $total_points = 0;
+    
+    // Calcular puntos por productos
+    foreach ($order->get_items() as $item) {
+        $product_id = $item->get_product_id();
+        $points = trash_get_sect_product_bonus($product_id);
+        $quantity = $item->get_quantity();
+        
+        $product_points = round($points * $multiplier) * $quantity;
+        $total_points += $product_points;
+    }
+    
+    if ($total_points > 0) {
+        // Añadir puntos al usuario
+        $current_points = trash_get_user_points($user_id);
+        update_user_meta($user_id, 'trash_sect_points', $current_points + $total_points);
+        
+        // Añadir nota a la orden
+        $order->add_order_note(
+            sprintf(
+                __('%d transgressive points awarded to sect member %s', 'trashgenero'),
+                $total_points,
+                $user_rank
+            )
+        );
+        
+        // Verificar si sube de rango
+        trash_check_rank_up($user_id);
+    }
+}
+add_action('woocommerce_order_status_completed', 'trash_add_points_after_purchase');
+
+/**
+ * Añadir campos para la secta en el perfil de usuario
+ */
+function trash_add_sect_profile_fields($user) {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    
+    ?>
+    <h3><?php _e('Fashion Killer Sect', 'trashgenero'); ?></h3>
+    
+    <table class="form-table">
+        <tr>
+            <th><label for="trash_sect_member"><?php _e('Sect Member', 'trashgenero'); ?></label></th>
+            <td>
+                <input type="checkbox" name="trash_sect_member" id="trash_sect_member" value="1" <?php checked(trash_is_sect_member($user->ID)); ?>>
+                <span class="description"><?php _e('User is a member of the Fashion Killer Sect', 'trashgenero'); ?></span>
+            </td>
+        </tr>
+        
+        <tr>
+            <th><label for="trash_sect_rank"><?php _e('Sect Rank', 'trashgenero'); ?></label></th>
+            <td>
+                <select name="trash_sect_rank" id="trash_sect_rank">
+                    <?php
+                    $ranks = array(
+                        __('Novice Normative', 'trashgenero'),
+                        __('Kitsch Disciple', 'trashgenero'),
+                        __('Queer Apprentice', 'trashgenero'),
+                        __('Provocative Priest', 'trashgenero'),
+                        __('Glitch Bishop', 'trashgenero'),
+                        __('Irreverent Cardinal', 'trashgenero'),
+                        __('Trash Supreme Pontiff', 'trashgenero')
+                    );
+                    
+                    $current_rank = trash_get_user_rank($user->ID);
+                    
+                    foreach ($ranks as $rank) {
+                        echo '<option value="' . esc_attr($rank) . '" ' . selected($current_rank, $rank, false) . '>' . esc_html($rank) . '</option>';
+                    }
+                    ?>
+                </select>
+            </td>
+        </tr>
+        
+        <tr>
+            <th><label for="trash_sect_points"><?php _e('Transgressive Points', 'trashgenero'); ?></label></th>
+            <td>
+                <input type="number" name="trash_sect_points" id="trash_sect_points" value="<?php echo esc_attr(trash_get_user_points($user->ID)); ?>" class="regular-text" min="0">
+            </td>
+        </tr>
+    </table>
+    <?php
+}
+add_action('show_user_profile', 'trash_add_sect_profile_fields');
+add_action('edit_user_profile', 'trash_add_sect_profile_fields');
+
+/**
+ * Guardar campos de secta en el perfil de usuario
+ */
+function trash_save_sect_profile_fields($user_id) {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    
+    // Membership
+    $is_member = isset($_POST['trash_sect_member']) ? true : false;
+    update_user_meta($user_id, 'trash_sect_member', $is_member);
+    
+    // Rank
+    if (isset($_POST['trash_sect_rank'])) {
+        update_user_meta($user_id, 'trash_sect_rank', sanitize_text_field($_POST['trash_sect_rank']));
+    }
+        // Points
+    if (isset($_POST['trash_sect_points'])) {
+        update_user_meta($user_id, 'trash_sect_points', intval($_POST['trash_sect_points']));
+    }
+}
+add_action('personal_options_update', 'trash_save_sect_profile_fields');
+add_action('edit_user_profile_update', 'trash_save_sect_profile_fields');
+
+/**
+ * Obtener galerías de rituales pasados
+ */
+function trash_ritual_gallery_shortcode($atts) {
+    $atts = shortcode_atts(array(
+        'ritual_type' => '',
+        'limit' => 6
+    ), $atts);
+    
+    if (!is_user_logged_in() || !trash_is_sect_member()) {
+        return '<div class="sect-login-required">' . __('Only sect members can view ritual galleries.', 'trashgenero') . '</div>';
+    }
+    
+    // Lista de imágenes (demo)
+    $ritual_images = array(
+        'initiation' => array('ritual-1.jpg', 'ritual-2.jpg'),
+        'transformation' => array('ritual-2.jpg', 'ritual-3.jpg'),
+        'provocation' => array('ritual-3.jpg'),
+        'consecration' => array('ritual-1.jpg', 'ritual-3.jpg'),
+        'secret' => array('ritual-3.jpg')
+    );
+    
+    $ritual_type = sanitize_text_field($atts['ritual_type']);
+    
+    // Si no se especifica tipo, mostrar todas las imágenes
+    if (empty($ritual_type) || !isset($ritual_images[$ritual_type])) {
+        $images = array();
+        foreach ($ritual_images as $type_images) {
+            $images = array_merge($images, $type_images);
+        }
+        $images = array_unique($images);
+    } else {
+        $images = $ritual_images[$ritual_type];
+    }
+    
+    // Limitar cantidad
+    $images = array_slice($images, 0, (int) $atts['limit']);
+    
+    if (empty($images)) {
+        return '<div class="no-images">' . __('No ritual images available.', 'trashgenero') . '</div>';
+    }
+    
+    $output = '<div class="ritual-gallery-grid">';
+    
+    foreach ($images as $image) {
+        $image_url = get_template_directory_uri() . '/assets/rituals/' . $image;
+        
+        $output .= '<div class="gallery-item ritual-item">';
+        $output .= '<a href="' . esc_url($image_url) . '" class="lightbox-trigger">';
+        $output .= '<img src="' . esc_url($image_url) . '" alt="' . __('Ritual Image', 'trashgenero') . '">';
+        $output .= '</a>';
+        $output .= '</div>';
+    }
+    
+    $output .= '</div>';
+    
+    return $output;
+}
+add_shortcode('ritual_gallery', 'trash_ritual_gallery_shortcode');
+
+/**
+ * Shortcode para el formulario de participación en rituales
+ */
+function trash_ritual_participation_form_shortcode($atts) {
+    $atts = shortcode_atts(array(
+        'id' => ''
+    ), $atts);
+    
+    if (!is_user_logged_in() || !trash_is_sect_member()) {
+        return '<div class="sect-login-required">' . __('You must be a member of the sect to participate in rituals.', 'trashgenero') . '</div>';
+    }
+    
+    $ritual_id = sanitize_text_field($atts['id']);
+    
+    if (empty($ritual_id)) {
+        return '<div class="error">' . __('No ritual specified.', 'trashgenero') . '</div>';
+    }
+    
+    // Verificar si el usuario ya está confirmado
+    $is_attending = trash_user_is_attending_ritual($ritual_id);
+    
+    if ($is_attending) {
+        return '<div class="already-attending">' . 
+            __('You have already confirmed your attendance to this ritual.', 'trashgenero') . 
+            '<br><a href="?cancel_ritual=' . esc_attr($ritual_id) . '" class="cancel-attendance">' . __('Cancel attendance', 'trashgenero') . '</a>' .
+            '</div>';
+    }
+    
+    $output = '<form class="ritual-participation-form" method="post" action="">';
+    $output .= wp_nonce_field('ritual_participation_action', 'ritual_participation_nonce', true, false);
+    $output .= '<input type="hidden" name="ritual_id" value="' . esc_attr($ritual_id) . '">';
+    
+    $output .= '<div class="form-group">';
+    $output .= '<label for="participant_name">' . __('Your preferred name for the ritual:', 'trashgenero') . '</label>';
+    $output .= '<input type="text" id="participant_name" name="participant_name" required>';
+    $output .= '</div>';
+    
+    $output .= '<div class="form-group">';
+    $output .= '<label>' . __('I understand that:', 'trashgenero') . '</label>';
+    
+    $output .= '<div class="checkbox-group">';
+    $output .= '<input type="checkbox" id="agree_terms" name="agree_terms" required>';
+    $output .= '<label for="agree_terms">' . __('I will respect the aesthetic transgressions of all participants', 'trashgenero') . '</label>';
+    $output .= '</div>';
+    
+    $output .= '<div class="checkbox-group">';
+    $output .= '<input type="checkbox" id="agree_documentation" name="agree_documentation" required>';
+    $output .= '<label for="agree_documentation">' . __('I consent to being photographed during the ritual', 'trashgenero') . '</label>';
+    $output .= '</div>';
+    
+    $output .= '<div class="checkbox-group">';
+    $output .= '<input type="checkbox" id="agree_participation" name="agree_participation" required>';
+    $output .= '<label for="agree_participation">' . __('I will actively participate in the ritual', 'trashgenero') . '</label>';
+    $output .= '</div>';
+    
+    $output .= '</div>';
+    
+    $output .= '<div class="form-submit">';
+    $output .= '<button type="submit" name="ritual_participation_submit" class="neon-button">' . __('Submit to Ritual', 'trashgenero') . '</button>';
+    $output .= '</div>';
+    
+    $output .= '</form>';
+    
+    return $output;
+}
+add_shortcode('ritual_participation_form', 'trash_ritual_participation_form_shortcode');
+
+/**
+ * Procesar formulario de participación en rituales
+ */
+function trash_process_ritual_participation_form() {
+    if (isset($_POST['ritual_participation_submit']) && isset($_POST['ritual_participation_nonce'])) {
+        if (!wp_verify_nonce($_POST['ritual_participation_nonce'], 'ritual_participation_action')) {
+            wp_die(__('Security check failed. Please try again.', 'trashgenero'));
+        }
+        
+        if (!is_user_logged_in() || !trash_is_sect_member()) {
+            wp_die(__('You must be a member of the sect to participate in rituals.', 'trashgenero'));
+        }
+        
+        if (!isset($_POST['ritual_id']) || !isset($_POST['participant_name']) || 
+            !isset($_POST['agree_terms']) || !isset($_POST['agree_documentation']) || !isset($_POST['agree_participation'])) {
+            wp_die(__('Please fill out all required fields.', 'trashgenero'));
+        }
+        
+        $ritual_id = sanitize_text_field($_POST['ritual_id']);
+        $participant_name = sanitize_text_field($_POST['participant_name']);
+        $user_id = get_current_user_id();
+        
+        // Verificar si el usuario puede asistir
+        if (!trash_can_attend_ritual($ritual_id, $user_id)) {
+            wp_die(__('You do not have the required rank to attend this ritual.', 'trashgenero'));
+        }
+        
+        // Añadir usuario a la lista de asistentes
+        $ritual = get_post($ritual_id);
+        
+        if (!$ritual) {
+            wp_die(__('Ritual not found.', 'trashgenero'));
+        }
+        
+        // Actualizar contador de asistentes
+        $attendees_count = (int) get_post_meta($ritual_id, 'ritual_attendees_count', true);
+        $capacity = (int) get_post_meta($ritual_id, 'ritual_capacity', true);
+        
+        if ($attendees_count >= $capacity) {
+            wp_die(__('This ritual has reached its maximum capacity.', 'trashgenero'));
+        }
+        
+        update_post_meta($ritual_id, 'ritual_attendees_count', $attendees_count + 1);
+        
+        // Añadir a la lista de asistentes
+        $attendees = get_post_meta($ritual_id, 'ritual_attendees', true);
+        
+        if (empty($attendees)) {
+            $attendees = $user_id;
+        } else {
+            $attendees .= ',' . $user_id;
+        }
+        
+        update_post_meta($ritual_id, 'ritual_attendees', $attendees);
+        
+        // Añadir a la lista de rituales del usuario
+        $user_rituals = trash_get_user_rituals($user_id);
+        
+        $new_ritual = array(
+            'id' => $ritual_id,
+            'title' => get_the_title($ritual_id),
+            'date' => get_post_meta($ritual_id, 'ritual_date', true),
+            'status' => 'confirmed',
+            'participant_name' => $participant_name,
+            'confirmation_date' => current_time('mysql')
+        );
+        
+        $user_rituals[] = $new_ritual;
+        update_user_meta($user_id, 'trash_sect_rituals', $user_rituals);
+        
+        // Redirigir a la misma página con mensaje de éxito
+        wp_redirect(add_query_arg('ritual_confirmed', '1', get_permalink()));
+        exit;
+    }
+    
+    // Procesar cancelación de asistencia
+    if (isset($_GET['cancel_ritual']) && is_user_logged_in() && trash_is_sect_member()) {
+        $ritual_id = sanitize_text_field($_GET['cancel_ritual']);
+        $user_id = get_current_user_id();
+        
+        // Verificar si el usuario está confirmado
+        if (trash_user_is_attending_ritual($ritual_id, $user_id)) {
+            // Actualizar contador de asistentes
+            $attendees_count = (int) get_post_meta($ritual_id, 'ritual_attendees_count', true);
+            update_post_meta($ritual_id, 'ritual_attendees_count', max(0, $attendees_count - 1));
+            
+            // Eliminar de la lista de asistentes
+            $attendees = get_post_meta($ritual_id, 'ritual_attendees', true);
+            $attendees_array = explode(',', $attendees);
+            $attendees_array = array_filter($attendees_array, function($id) use ($user_id) {
+                return $id != $user_id;
+            });
+            update_post_meta($ritual_id, 'ritual_attendees', implode(',', $attendees_array));
+            
+            // Eliminar de la lista de rituales del usuario
+            $user_rituals = trash_get_user_rituals($user_id);
+            $user_rituals = array_filter($user_rituals, function($ritual) use ($ritual_id) {
+                return $ritual['id'] != $ritual_id;
+            });
+            update_user_meta($user_id, 'trash_sect_rituals', $user_rituals);
+            
+            // Redirigir a la misma página con mensaje de éxito
+            wp_redirect(add_query_arg('ritual_cancelled', '1', get_permalink()));
+            exit;
+        }
+    }
+    
+    // Mostrar mensaje de confirmación
+    if (isset($_GET['ritual_confirmed']) && $_GET['ritual_confirmed'] == '1') {
+        add_action('wp_footer', function() {
+            echo '<script>alert("' . __('Your attendance has been confirmed. Welcome to the ritual.', 'trashgenero') . '");</script>';
+        });
+    }
+    
+    // Mostrar mensaje de cancelación
+    if (isset($_GET['ritual_cancelled']) && $_GET['ritual_cancelled'] == '1') {
+        add_action('wp_footer', function() {
+            echo '<script>alert("' . __('Your attendance has been cancelled.', 'trashgenero') . '");</script>';
+        });
+    }
+}
+add_action('template_redirect', 'trash_process_ritual_participation_form');
+
+/**
+ * Aplicar descuento a miembros de la secta
+ */
+function trash_apply_sect_discount($cart) {
+    if (is_admin() && !defined('DOING_AJAX')) {
+        return;
+    }
+    
+    // Verificar si el usuario es miembro de la secta
+    if (!is_user_logged_in() || !trash_is_sect_member()) {
+        return;
+    }
+    
+    // Obtener rango del usuario
+    $user_rank = trash_get_user_rank();
+    
+    // Descuento según rango
+    $discount_percentages = array(
+        __('Novice Normative', 'trashgenero') => 5,
+        __('Kitsch Disciple', 'trashgenero') => 8,
+        __('Queer Apprentice', 'trashgenero') => 10,
+        __('Provocative Priest', 'trashgenero') => 12,
+        __('Glitch Bishop', 'trashgenero') => 15,
+        __('Irreverent Cardinal', 'trashgenero') => 18,
+        __('Trash Supreme Pontiff', 'trashgenero') => 20
+    );
+    
+    $discount_percentage = isset($discount_percentages[$user_rank]) ? $discount_percentages[$user_rank] : 5;
+    
+    // Verificar si ya se aplicó el descuento
+    $discount_applied = false;
+    foreach ($cart->get_applied_coupons() as $code) {
+        if ($code === 'sect_member_discount') {
+            $discount_applied = true;
+            break;
+        }
+    }
+    
+    if ($discount_applied) {
+        return;
+    }
+    
+    // Crear descuento programático
+    $discount_type = 'percent';
+    $discount_amount = $discount_percentage;
+    $coupon_code = 'sect_member_discount';
+    
+    // Verificar si el cupón existe
+    $coupon = new WC_Coupon($coupon_code);
+    
+    if (!$coupon->get_id()) {
+        // Crear cupón
+        $coupon = array(
+            'post_title' => $coupon_code,
+            'post_content' => '',
+            'post_status' => 'publish',
+            'post_author' => 1,
+            'post_type' => 'shop_coupon'
+        );
+        
+        $new_coupon_id = wp_insert_post($coupon);
+        
+        // Configurar propiedades del cupón
+        update_post_meta($new_coupon_id, 'discount_type', $discount_type);
+        update_post_meta($new_coupon_id, 'coupon_amount', $discount_amount);
+        update_post_meta($new_coupon_id, 'individual_use', 'no');
+        update_post_meta($new_coupon_id, 'product_ids', '');
+        update_post_meta($new_coupon_id, 'exclude_product_ids', '');
+        update_post_meta($new_coupon_id, 'usage_limit', '');
+        update_post_meta($new_coupon_id, 'expiry_date', '');
+        update_post_meta($new_coupon_id, 'apply_before_tax', 'yes');
+        update_post_meta($new_coupon_id, 'free_shipping', 'no');
+    }
+    
+    // Aplicar cupón al carrito
+    if (!$cart->has_discount($coupon_code)) {
+        $cart->apply_coupon($coupon_code);
+        
+        // Mostrar mensaje
+        wc_add_notice(
+            sprintf(
+                __('Fashion Killer Sect discount (%d%%) applied to your order!', 'trashgenero'),
+                $discount_percentage
+            ),
+            'success'
+        );
+    }
+}
+add_action('woocommerce_before_calculate_totals', 'trash_apply_sect_discount');
+
+/**
+ * Impedir que se elimine el descuento de la secta
+ */
+function trash_prevent_sect_discount_removal($coupon_code) {
+    if ($coupon_code === 'sect_member_discount' && is_user_logged_in() && trash_is_sect_member()) {
+        wc_add_notice(
+            __('The sect member discount cannot be removed while you are logged in as a sect member.', 'trashgenero'),
+            'error'
+        );
+        return true;
+    }
+    return false;
+}
+add_filter('woocommerce_coupon_is_valid', 'trash_prevent_sect_discount_removal', 10, 2);
