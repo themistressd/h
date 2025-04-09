@@ -123,7 +123,79 @@ this.initWindowManager();
         // Inicializar datos de la secta
         this.initSectData();
     }
+    /**
+ * Inicializar el gestor de ventanas cuando esté disponible
+ */
+initWindowManager() {
+    // Verificar si WindowManager está disponible
+    if (typeof window.WindowManager === 'undefined') {
+        console.log('WindowManager no está disponible aún. Reintentando en 100ms...');
+        // Reintentar en 100ms
+        setTimeout(() => this.initWindowManager(), 100);
+        return;
+    }
     
+    try {
+        // WindowManager está disponible, crear instancia
+        this.windowManager = new window.WindowManager();
+        console.log('WindowManager inicializado correctamente');
+    } catch (error) {
+        console.error('Error al inicializar WindowManager:', error);
+        this.showErrorMessage('Error al inicializar WindowManager: ' + error.message);
+    }
+}
+
+    /**
+ * Mostrar mensaje de error en la UI
+ * @param {string} message - Mensaje de error
+ */
+showErrorMessage(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'trash-os-error';
+    errorDiv.innerHTML = `
+        <div class="error-window">
+            <div class="error-header">
+                <div class="error-title">TrashOS Error</div>
+                <div class="error-close">×</div>
+            </div>
+            <div class="error-content">
+                <div class="error-icon">⚠️</div>
+                <div class="error-message">
+                    <p>TrashOS ha encontrado un error y necesita cerrarse</p>
+                    <p class="error-details">Error: ${message}</p>
+                    <p class="error-help">Presiona ESC para salir</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(errorDiv);
+    
+    // Configurar eventos
+    const closeBtn = errorDiv.querySelector('.error-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            errorDiv.remove();
+        });
+    }
+    
+    // Cerrar con ESC
+    document.addEventListener('keydown', function onEsc(e) {
+        if (e.key === 'Escape') {
+            errorDiv.remove();
+            document.removeEventListener('keydown', onEsc);
+        }
+    });
+    
+    // Reproducir sonido de error
+    const baseUrl = document.querySelector('meta[name="theme-url"]')?.content || '';
+    if (baseUrl) {
+        const audio = new Audio(`${baseUrl}/assets/sounds/error.mp3`);
+        audio.play().catch(err => {
+            console.warn('Error reproduciendo sonido:', err);
+        });
+    }
+}
     /**
      * Inicializar datos de la secta
      */
