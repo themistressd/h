@@ -391,12 +391,14 @@ showErrorMessage(message) {
     }
 
     /**
-     * Evento: Cambio de tamaño de ventana
-     */
-    onWindowResize() {
-        // Ajustar elementos según el nuevo tamaño
+ * Evento: Cambio de tamaño de ventana
+ */
+onWindowResize() {
+    // Ajustar elementos según el nuevo tamaño
+    if (this.windowManager && typeof this.windowManager.repositionWindows === 'function') {
         this.windowManager.repositionWindows();
     }
+}
 
     /**
      * Evento: Tecla presionada
@@ -493,11 +495,12 @@ showErrorMessage(message) {
      * @param {Object} options - Opciones de la ventana
      */
     openWindow(options) {
-        // Verificar si ya hay demasiadas ventanas abiertas
-        if (this.state.windows.length >= this.config.maxWindows) {
-            this.showNotification('Demasiadas ventanas', 'Cierra alguna ventana antes de abrir otra', 'warning');
-            return null;
-        }
+        // Verificar si el WindowManager está disponible
+if (!this.windowManager) {
+    console.error('WindowManager no está disponible');
+    this.showNotification('Error', 'No se puede abrir la ventana en este momento', 'error');
+    return null;
+}
 
         // Opciones por defecto
         const defaultOptions = {
@@ -664,16 +667,25 @@ showErrorMessage(message) {
      * @param {string} soundName - Nombre del sonido a reproducir
      */
     playSound(soundName) {
-        if (!this.state.soundEnabled) return;
+    if (!this.state.soundEnabled) return;
 
-        const sound = this.assets.sounds[soundName];
-        if (sound) {
-            const audio = new Audio(this.getAssetPath('sounds/' + sound));
-            audio.play().catch(error => {
-                console.warn('No se pudo reproducir el sonido:', error);
-            });
+    const sound = this.assets.sounds[soundName];
+    if (sound) {
+        // Intentar obtener la URL base del tema
+        const baseUrl = document.querySelector('meta[name="theme-url"]')?.content || '';
+        let soundUrl = this.getAssetPath('sounds/' + sound);
+        
+        // Si hay una URL base definida, usarla
+        if (baseUrl) {
+            soundUrl = `${baseUrl}/assets/sounds/${soundName}.mp3`;
         }
+        
+        const audio = new Audio(soundUrl);
+        audio.play().catch(error => {
+            console.warn('No se pudo reproducir el sonido:', error);
+        });
     }
+}
 
     /**
      * Obtener la ruta completa a un recurso
@@ -681,10 +693,22 @@ showErrorMessage(message) {
      * @returns {string} - Ruta completa al recurso
      */
     getAssetPath(assetPath) {
-        // Ruta base a los recursos (ajustar según la estructura del tema)
-        const basePath = '/wp-content/themes/trashgenero-theme/assets/';
-        return basePath + assetPath;
+    // Primero intentar obtener la URL base del tema desde el meta tag
+    const baseUrl = document.querySelector('meta[name="theme-url"]')?.content;
+    
+    if (baseUrl) {
+        return `${baseUrl}/assets/${assetPath}`;
     }
+    
+    // Si no hay meta tag, intentar inferir la ruta
+    const themePath = document.querySelector('link[rel="stylesheet"][href*="style.css"]')?.href;
+    if (themePath) {
+        return themePath.replace(/style\.css.*$/, `assets/${assetPath}`);
+    }
+    
+    // Fallback: usar la ruta relativa estándar
+    return `/wp-content/themes/trashgenero-theme/assets/${assetPath}`;
+}
 
     /**
      * Abrir el navegador
@@ -2369,11 +2393,13 @@ showErrorMessage(message) {
         this.resetDesktopIcons();
         
         // Cerrar la ventana actual si existe
-        const joinWindow = document.querySelector('.window-active');
-        if (joinWindow) {
-            const windowId = joinWindow.id;
-            this.windowManager.closeWindow(windowId);
-        }
+const joinWindow = document.querySelector('.window-active');
+if (joinWindow) {
+    const windowId = joinWindow.id;
+    if (this.windowManager && typeof this.windowManager.closeWindow === 'function') {
+        this.windowManager.closeWindow(windowId);
+    }
+}
         
         // Abrir el panel de la secta
         this.openSectDashboard();
