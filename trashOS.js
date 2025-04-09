@@ -115,9 +115,8 @@ class TrashOS {
         window.addEventListener('keydown', this.onKeyDown.bind(this));
         window.addEventListener('error', this.onError.bind(this));
 
-        // Inicializar gestor de ventanas
-        this.windowManager = new WindowManager(this);
-
+      // Inicializar gestor de ventanas (con manejo de disponibilidad)
+this.initWindowManager();
         // Cargar datos del usuario
         this.loadUserData();
         
